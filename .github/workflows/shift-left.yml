@@ -118,7 +118,7 @@ jobs:
           path: reports/security/
 
   shift-left:
-    name: CI checks
+    name: Shift-left checks
     runs-on: ubuntu-latest
     permissions:
       contents: read
