@@ -42,13 +42,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Check out shared workflow helpers
-        uses: actions/checkout@v4
-        with:
-          repository: almmechanics/github-actions-workflows
-          ref: main
-          path: .github-actions-workflows
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -94,6 +87,14 @@ jobs:
           mkdir -p reports/security
           checkov -d "${{ inputs.iac }}" --quiet --output cli > reports/security/checkov.txt
 
+      - name: Check out shared workflow helpers
+        if: always()
+        uses: actions/checkout@v4
+        with:
+          repository: almmechanics/github-actions-workflows
+          ref: main
+          path: .github-actions-workflows
+
       - name: Write security report summary
         if: always()
         run: |
@@ -118,13 +119,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Check out shared workflow helpers
-        uses: actions/checkout@v4
-        with:
-          repository: almmechanics/github-actions-workflows
-          ref: main
-          path: .github-actions-workflows
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -202,6 +196,14 @@ jobs:
 
       - name: Spell-check en-GB
         run: npm run lint:spell > reports/shift-left/spell-check.txt
+
+      - name: Check out shared workflow helpers
+        if: always()
+        uses: actions/checkout@v4
+        with:
+          repository: almmechanics/github-actions-workflows
+          ref: main
+          path: .github-actions-workflows
 
       - name: Run unit tests
         run: |
