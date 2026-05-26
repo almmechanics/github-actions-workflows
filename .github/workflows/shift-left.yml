@@ -7,7 +7,7 @@ on:
         description: Node.js version for shift-left checks.
         required: false
         type: string
-        default: "22.16"
+        default: "22.18"
       npm-version:
         description: npm version for shift-left checks.
         required: false

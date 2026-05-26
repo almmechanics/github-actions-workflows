@@ -29,7 +29,7 @@ jobs:
 	checks:
 		uses: almmechanics/github-actions-workflows/.github/workflows/shift-left.yml@main
 		with:
-			node-version: "22.16"
+			node-version: "22.18"
 			npm-version: "10.9"
 			enable-codeql: false
 			# Optional IaC folder; omit or leave empty to skip Terraform/TFLint/Checkov
@@ -39,7 +39,7 @@ jobs:
 
 ## Inputs
 
-- `node-version` (default: `22.16`)
+- `node-version` (default: `22.18`)
 - `npm-version` (default: `10.9`)
 - `python-version` (default: `3.10`)
 - `enable-codeql` (default: `false`)
