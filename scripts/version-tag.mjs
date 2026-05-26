@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
-import packageJson from "../package.json" with { type: "json" };
+const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8"));
 
 const command = process.argv[2] || "check";
 const version = packageJson.version;
@@ -13,7 +15,7 @@ if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
 }
 
 if (!["check", "tag"].includes(command)) {
-  throw new Error("Usage: node scripts/version-tag.mjs <check|tag>");
+  throw new Error("Usage: node <path-to>/version-tag.mjs <check|tag>");
 }
 
 const currentSha = git(["rev-parse", "HEAD"]);
