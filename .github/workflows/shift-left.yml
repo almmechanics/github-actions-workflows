@@ -1,0 +1,226 @@
+name: Reusable Shift Left
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version for shift-left checks.
+        required: false
+        type: string
+        default: "22.16"
+      npm-version:
+        description: npm version for shift-left checks.
+        required: false
+        type: string
+        default: "10.9"
+      python-version:
+        description: Python version for optional IaC security tooling.
+        required: false
+        type: string
+        default: "3.10"
+      terraform-version:
+        description: Terraform version for optional IaC validation.
+        required: false
+        type: string
+        default: "1.9.8"
+      iac:
+        description: Optional path to Terraform IaC. Leave empty to skip Terraform, TFLint, and Checkov.
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  security:
+    name: Security checks
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Pin npm major
+        run: npm install --global npm@${{ inputs.npm-version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Python for IaC checks
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install Checkov
+        if: ${{ inputs.iac != '' }}
+        run: python -m pip install checkov
+
+      - name: Record skipped Checkov
+        if: ${{ inputs.iac == '' }}
+        run: |
+          mkdir -p reports/security
+          printf '%s\n' 'Checkov skipped because the reusable workflow input `iac` was not set.' > reports/security/checkov.txt
+
+      - name: Audit npm dependencies
+        run: |
+          mkdir -p reports/security
+          npm audit --audit-level=moderate --json > reports/security/npm-audit.json
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+
+      - name: Analyze code with CodeQL
+        uses: github/codeql-action/analyze@v4
+
+      - name: Run Checkov
+        if: ${{ inputs.iac != '' }}
+        run: |
+          mkdir -p reports/security
+          checkov -d "${{ inputs.iac }}" --quiet --output cli > reports/security/checkov.txt
+
+      - name: Write security report summary
+        if: always()
+        run: |
+          node scripts/markdown-run-report.mjs "Security Report" reports/security/security-report.md \
+            "npm audit=reports/security/npm-audit.json" \
+            "Checkov=reports/security/checkov.txt"
+          cat reports/security/security-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: reports/security/
+
+  shift-left:
+    name: CI checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Pin npm major
+        run: npm install --global npm@${{ inputs.npm-version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Set up Terraform
+        if: ${{ inputs.iac != '' }}
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+
+      - name: Set up TFLint
+        if: ${{ inputs.iac != '' }}
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Record skipped IaC checks
+        if: ${{ inputs.iac == '' }}
+        run: |
+          mkdir -p reports/shift-left
+          printf '%s\n' 'IaC checks skipped because the reusable workflow input `iac` was not set.' > reports/shift-left/iac.txt
+          printf '%s\n' 'Terraform init skipped because the reusable workflow input `iac` was not set.' > reports/shift-left/terraform-init.txt
+          printf '%s\n' 'Terraform validate skipped because the reusable workflow input `iac` was not set.' > reports/shift-left/terraform-validate.txt
+          printf '%s\n' 'TFLint skipped because the reusable workflow input `iac` was not set.' > reports/shift-left/tflint.txt
+
+      - name: Record IaC folder
+        if: ${{ inputs.iac != '' }}
+        run: |
+          mkdir -p reports/shift-left
+          printf 'IaC checks enabled for %s\n' '${{ inputs.iac }}' > reports/shift-left/iac.txt
+
+      - name: Initialize Terraform
+        if: ${{ inputs.iac != '' }}
+        working-directory: ${{ inputs.iac }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/reports/shift-left"
+          terraform init -backend=false -input=false -no-color > "$GITHUB_WORKSPACE/reports/shift-left/terraform-init.txt"
+
+      - name: Validate Terraform
+        if: ${{ inputs.iac != '' }}
+        working-directory: ${{ inputs.iac }}
+        run: terraform validate -no-color > "$GITHUB_WORKSPACE/reports/shift-left/terraform-validate.txt"
+
+      - name: Run TFLint
+        if: ${{ inputs.iac != '' }}
+        working-directory: ${{ inputs.iac }}
+        run: |
+          tflint --init > "$GITHUB_WORKSPACE/reports/shift-left/tflint-init.txt"
+          tflint --format compact > "$GITHUB_WORKSPACE/reports/shift-left/tflint.txt"
+
+      - name: Check package version tag
+        run: |
+          mkdir -p reports/shift-left
+          npm run version:check > reports/shift-left/version-tag.txt
+
+      - name: Run static sanity checks
+        run: |
+          mkdir -p reports/shift-left
+          npm run check > reports/shift-left/sanity-check.txt
+
+      - name: Lint JavaScript modules
+        run: npm run lint -- --format stylish > reports/shift-left/lint.txt
+
+      - name: Validate JSON files
+        run: npm run lint:json > reports/shift-left/json-validation.txt
+
+      - name: Validate YAML files
+        run: npm run lint:yaml > reports/shift-left/yaml-validation.txt
+
+      - name: Spell-check en-GB
+        run: npm run lint:spell > reports/shift-left/spell-check.txt
+
+      - name: Run unit tests
+        run: |
+          node --test --test-reporter tap tests/*.test.mjs > reports/shift-left/unit-tests.tap
+          node scripts/tap-report.mjs \
+            reports/shift-left/unit-tests.tap \
+            reports/shift-left/unit-tests.junit.xml \
+            reports/shift-left/unit-tests.md
+
+      - name: Build static app
+        run: npm run build > reports/shift-left/build.txt
+
+      - name: Write shift-left report summary
+        if: always()
+        run: |
+          node scripts/markdown-run-report.mjs "Shift Left Report" reports/shift-left/shift-left-report.md \
+            "Version tag=reports/shift-left/version-tag.txt" \
+            "Sanity checks=reports/shift-left/sanity-check.txt" \
+            "Lint=reports/shift-left/lint.txt" \
+            "JSON validation=reports/shift-left/json-validation.txt" \
+            "YAML validation=reports/shift-left/yaml-validation.txt" \
+            "Spell check=reports/shift-left/spell-check.txt" \
+            "Terraform init=reports/shift-left/terraform-init.txt" \
+            "Terraform validate=reports/shift-left/terraform-validate.txt" \
+            "TFLint=reports/shift-left/tflint.txt" \
+            "IaC status=reports/shift-left/iac.txt" \
+            "Unit tests=reports/shift-left/unit-tests.tap" \
+            "Build=reports/shift-left/build.txt"
+          cat reports/shift-left/shift-left-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload shift-left reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shift-left-reports
+          path: reports/shift-left/
