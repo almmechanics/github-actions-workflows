@@ -42,6 +42,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Check out shared workflow helpers
+        uses: actions/checkout@v4
+        with:
+          repository: almmechanics/github-actions-workflows
+          ref: main
+          path: .github-actions-workflows
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -90,7 +97,7 @@ jobs:
       - name: Write security report summary
         if: always()
         run: |
-          node scripts/markdown-run-report.mjs "Security Report" reports/security/security-report.md \
+          node .github-actions-workflows/scripts/markdown-run-report.mjs "Security Report" reports/security/security-report.md \
             "npm audit=reports/security/npm-audit.json" \
             "Checkov=reports/security/checkov.txt"
           cat reports/security/security-report.md >> "$GITHUB_STEP_SUMMARY"
@@ -111,6 +118,13 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Check out shared workflow helpers
+        uses: actions/checkout@v4
+        with:
+          repository: almmechanics/github-actions-workflows
+          ref: main
+          path: .github-actions-workflows
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -192,7 +206,7 @@ jobs:
       - name: Run unit tests
         run: |
           node --test --test-reporter tap tests/*.test.mjs > reports/shift-left/unit-tests.tap
-          node scripts/tap-report.mjs \
+          node .github-actions-workflows/scripts/tap-report.mjs \
             reports/shift-left/unit-tests.tap \
             reports/shift-left/unit-tests.junit.xml \
             reports/shift-left/unit-tests.md
@@ -203,7 +217,7 @@ jobs:
       - name: Write shift-left report summary
         if: always()
         run: |
-          node scripts/markdown-run-report.mjs "Shift Left Report" reports/shift-left/shift-left-report.md \
+          node .github-actions-workflows/scripts/markdown-run-report.mjs "Shift Left Report" reports/shift-left/shift-left-report.md \
             "Version tag=reports/shift-left/version-tag.txt" \
             "Sanity checks=reports/shift-left/sanity-check.txt" \
             "Lint=reports/shift-left/lint.txt" \
