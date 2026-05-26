@@ -31,6 +31,7 @@ jobs:
 		with:
 			node-version: "22.16"
 			npm-version: "10.9"
+			enable-codeql: false
 			# Optional IaC folder; omit or leave empty to skip Terraform/TFLint/Checkov
 			iac: ""
 		secrets: inherit
@@ -41,8 +42,11 @@ jobs:
 - `node-version` (default: `22.16`)
 - `npm-version` (default: `10.9`)
 - `python-version` (default: `3.10`)
+- `enable-codeql` (default: `false`)
 - `terraform-version` (default: `1.9.8`)
 - `iac` (default: `""`)
+
+Set `enable-codeql: true` only in repositories where GitHub Code Scanning is enabled.
 
 ## Semantic Version And Tagging
 

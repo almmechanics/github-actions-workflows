@@ -18,6 +18,11 @@ on:
         required: false
         type: string
         default: "3.10"
+      enable-codeql:
+        description: Enable CodeQL init/analyze steps when repository code scanning is configured.
+        required: false
+        type: boolean
+        default: false
       terraform-version:
         description: Terraform version for optional IaC validation.
         required: false
@@ -74,11 +79,13 @@ jobs:
           npm audit --audit-level=moderate --json > reports/security/npm-audit.json
 
       - name: Initialize CodeQL
+        if: ${{ inputs.enable-codeql }}
         uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
 
       - name: Analyze code with CodeQL
+        if: ${{ inputs.enable-codeql }}
         uses: github/codeql-action/analyze@v4
 
       - name: Run Checkov
@@ -195,7 +202,10 @@ jobs:
         run: npm run lint:yaml > reports/shift-left/yaml-validation.txt
 
       - name: Spell-check en-GB
-        run: npm run lint:spell > reports/shift-left/spell-check.txt
+        run: |
+          mkdir -p reports/shift-left
+          set -o pipefail
+          npm run lint:spell 2>&1 | tee reports/shift-left/spell-check.txt
 
       - name: Check out shared workflow helpers
         if: always()
