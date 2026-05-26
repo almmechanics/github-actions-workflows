@@ -182,6 +182,14 @@ jobs:
           tflint --init > "$GITHUB_WORKSPACE/reports/shift-left/tflint-init.txt"
           tflint --format compact > "$GITHUB_WORKSPACE/reports/shift-left/tflint.txt"
 
+      - name: Check out shared workflow helpers
+        if: always()
+        uses: actions/checkout@v4
+        with:
+          repository: almmechanics/github-actions-workflows
+          ref: main
+          path: .github-actions-workflows
+
       - name: Check package version tag
         run: |
           mkdir -p reports/shift-left
@@ -206,14 +214,6 @@ jobs:
           mkdir -p reports/shift-left
           set -o pipefail
           npm run lint:spell 2>&1 | tee reports/shift-left/spell-check.txt
-
-      - name: Check out shared workflow helpers
-        if: always()
-        uses: actions/checkout@v4
-        with:
-          repository: almmechanics/github-actions-workflows
-          ref: main
-          path: .github-actions-workflows
 
       - name: Run unit tests
         run: |
