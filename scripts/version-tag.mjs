@@ -51,5 +51,6 @@ function remoteTagSha(tag) {
 }
 
 function git(args, options = {}) {
-  return execFileSync("git", args, { encoding: "utf8", ...options }).trim();
+  const result = execFileSync("git", args, { encoding: "utf8", ...options });
+  return result == null ? null : result.trim();
 }
