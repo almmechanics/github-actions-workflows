@@ -1,32 +1,46 @@
 #!/usr/bin/env node
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
 
 const root = process.cwd();
-const jsonFiles = collectJson(root);
+const excludedDirs = new Set([".git", "dist", "node_modules", "reports"]);
+const files = listJsonFiles(root);
 
-for (const file of jsonFiles) {
-  JSON.parse(readFileSync(file, "utf8"));
+let failures = 0;
+
+files.forEach((file) => {
+  try {
+    JSON.parse(readFileSync(file, "utf8"));
+    console.log(`ok ${relative(root, file)}`);
+  } catch (error) {
+    failures += 1;
+    console.error(`not ok ${relative(root, file)}: ${error.message}`);
+  }
+});
+
+if (failures > 0) {
+  throw new Error(`${failures} JSON file${failures === 1 ? "" : "s"} failed validation.`);
 }
 
-console.log(`Validated ${jsonFiles.length} JSON files.`);
+function listJsonFiles(dir) {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const files = [];
 
-function collectJson(dir) {
-  const out = [];
-  for (const entry of readdirSync(dir)) {
-    if ([".git", "node_modules", "dist", "reports"].includes(entry)) {
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      if (!excludedDirs.has(entry.name)) {
+        files.push(...listJsonFiles(fullPath));
+      }
       continue;
     }
-    const full = join(dir, entry);
-    const stat = statSync(full);
-    if (stat.isDirectory()) {
-      out.push(...collectJson(full));
-      continue;
-    }
-    if (entry.endsWith(".json")) {
-      out.push(full);
+
+    if (entry.isFile() && entry.name.endsWith(".json")) {
+      files.push(fullPath);
     }
   }
-  return out;
+
+  return files;
 }

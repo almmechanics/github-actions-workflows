@@ -1,36 +1,51 @@
 #!/usr/bin/env node
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { parseDocument } from "yaml";
 
 const root = process.cwd();
-const yamlFiles = collectYaml(root);
+const excludedDirs = new Set([".git", "dist", "node_modules", "reports"]);
+const files = listYamlFiles(root);
 
-for (const file of yamlFiles) {
-  const doc = parseDocument(readFileSync(file, "utf8"));
-  if (doc.errors.length > 0) {
-    throw new Error(`${file} has YAML parsing errors.`);
+let failures = 0;
+
+files.forEach((file) => {
+  const document = parseDocument(readFileSync(file, "utf8"), { prettyErrors: true });
+  const errors = [...document.errors, ...document.warnings];
+
+  if (errors.length === 0) {
+    console.log(`ok ${relative(root, file)}`);
+    return;
   }
+
+  failures += 1;
+  console.error(`not ok ${relative(root, file)}`);
+  errors.forEach((error) => console.error(error.message));
+});
+
+if (failures > 0) {
+  throw new Error(`${failures} YAML file${failures === 1 ? "" : "s"} failed validation.`);
 }
 
-console.log(`Validated ${yamlFiles.length} YAML files.`);
+function listYamlFiles(dir) {
+  const entries = readdirSync(dir, { withFileTypes: true });
+  const files = [];
 
-function collectYaml(dir) {
-  const out = [];
-  for (const entry of readdirSync(dir)) {
-    if ([".git", "node_modules", "dist", "reports"].includes(entry)) {
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      if (!excludedDirs.has(entry.name)) {
+        files.push(...listYamlFiles(fullPath));
+      }
       continue;
     }
-    const full = join(dir, entry);
-    const stat = statSync(full);
-    if (stat.isDirectory()) {
-      out.push(...collectYaml(full));
-      continue;
-    }
-    if (entry.endsWith(".yml") || entry.endsWith(".yaml")) {
-      out.push(full);
+
+    if (entry.isFile() && (entry.name.endsWith(".yml") || entry.name.endsWith(".yaml"))) {
+      files.push(fullPath);
     }
   }
-  return out;
+
+  return files;
 }
